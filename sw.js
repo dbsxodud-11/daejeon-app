@@ -1,4 +1,4 @@
-const CACHE = 'daejeon-v22';
+const CACHE = 'daejeon-v23';
 const CORE = ['./', './index.html', './manifest.webmanifest',
               './icon-180.png', './icon-192.png', './icon-512.png', './avatar-me.jpg'];
 
@@ -12,9 +12,23 @@ self.addEventListener('activate', e => {
     .then(() => self.clients.claim()));
 });
 
-// cache first, then network. fonts get cached on the first online visit.
+// the page itself: network first, so a refresh always shows the latest
+// version when online. falls back to the cached copy when offline.
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request).then(res => {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put('./index.html', copy)).catch(() => {});
+        return res;
+      }).catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
+
+  // everything else (icons, manifest, avatar): cache first, then network.
   e.respondWith(
     caches.match(e.request, {ignoreSearch: true}).then(hit => {
       if (hit) return hit;
