@@ -94,7 +94,6 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
       <defs>
         <clipPath id="disc"><circle cx="500" cy="500" r="499"/></clipPath>
         <radialGradient id="glowW"><stop offset="0" stop-color="#f4b551" stop-opacity=".55"/><stop offset="1" stop-color="#f4b551" stop-opacity="0"/></radialGradient>
-        <radialGradient id="glowE"><stop offset="0" stop-color="#ee7e9b" stop-opacity=".5"/><stop offset="1" stop-color="#ee7e9b" stop-opacity="0"/></radialGradient>
         <clipPath id="meClip"><circle r="40"/></clipPath>
       </defs>
       <circle id="sky" cx="500" cy="500" r="499"/>
@@ -106,8 +105,6 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
       <path id="trail" class="trail"/>
       <g id="cities"></g>
       <g id="labels"></g>
-      <circle id="haloE" r="82" fill="url(#glowE)"/>
-      <text id="avE" class="avatar"></text>
       <circle id="haloW" r="88" fill="url(#glowW)"/>
       <g id="avW">
         <circle r="41" fill="var(--panel)" stroke="var(--warm)" stroke-width="3"/>
@@ -278,10 +275,9 @@ const store={
 const q = new URLSearchParams(location.search);
 const cfg={
   start: q.get('from') || store.get('start','2026-08-20'),
-  end:   q.get('to')   || store.get('end','2026-11-06'),
-  emE:   q.get('you')  || store.get('emE','🐻')
+  end:   q.get('to')   || store.get('end','2026-11-06')
 };
-for (const k of ['start','end','emE']) store.set(k, cfg[k]);
+for (const k of ['start','end']) store.set(k, cfg[k]);
 
 const day=86400000;
 const parse = s => new Date(s+'T12:00:00Z');
@@ -316,14 +312,10 @@ function render(mapOnly){
   const goalP = proj(GOAL_V);
   const sep = Math.hypot(goalP.x-pos.x, goalP.y-pos.y);
   const push = sep < 150 ? (150-sep)*0.42 : 0;
-  const wy = pos.y-push, ey = goalP.y+push*0.7;
+  const wy = pos.y-push;
   $('avW').setAttribute('transform',`translate(${pos.x},${wy})`);
   $('avW').style.opacity = $('haloW').style.opacity = pos.front ? 1 : 0;
   $('haloW').setAttribute('cx',pos.x); $('haloW').setAttribute('cy',wy);
-  $('avE').setAttribute('x',goalP.x); $('avE').setAttribute('y',ey-46);
-  $('haloE').setAttribute('cx',goalP.x); $('haloE').setAttribute('cy',ey-46);
-  $('avE').style.opacity = $('haloE').style.opacity = goalP.front ? 1 : 0;
-  $('avE').textContent=cfg.emE;
   $('goalLbl').style.opacity = (push>24 || !goalP.front) ? 0 : 1;
   document.querySelectorAll('#cities .city').forEach(el=>{
     el.classList.toggle('done', +el.dataset.km <= km+0.5);
