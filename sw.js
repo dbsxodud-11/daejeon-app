@@ -1,4 +1,4 @@
-const CACHE = 'daejeon-v21';
+const CACHE = 'daejeon-v22';
 const CORE = ['./', './index.html', './manifest.webmanifest',
               './icon-180.png', './icon-192.png', './icon-512.png', './avatar-me.jpg'];
 

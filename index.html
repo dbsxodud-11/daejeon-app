@@ -54,7 +54,6 @@ h1 b{font-weight:700}
 .state .days strong{font-family:var(--la); font-size:62px; font-weight:500; line-height:.95; letter-spacing:-.02em}
 .state .days span{font-size:16px; color:var(--dim)}
 .state p{margin:.7em 0 0}
-.countdown{font-family:var(--la); font-size:13px; color:var(--dim); letter-spacing:.01em}
 
 .who{display:grid; grid-template-columns:1fr; gap:14px; padding:18px 0; border-bottom:1px solid var(--line)}
 .who h2{margin:0; font-size:17px; font-weight:700; display:flex; align-items:center; gap:8px}
@@ -122,7 +121,6 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
     <div class="days"><strong id="dLeft" class="num">43</strong><span id="dLabel">일 뒤에 도착합니다</span></div>
     <p id="meetLine">10월 29일 목요일</p>
     <div class="bar" id="barW" tabindex="0" role="slider" aria-label="지금까지 이동한 위치" aria-valuemin="0" aria-valuemax="100"><i id="barFill"><span class="thumb"></span></i></div>
-    <p id="countdown" class="countdown"></p>
   </div>
 
   <div class="who">
@@ -330,9 +328,6 @@ function render(mapOnly){
   const sv = subsolarVec(instant);
 
   /* headline */
-  const left = Math.max(0, dayDiff(toDateStr(instant), cfg.end));
-  $('dLeft').textContent = left;
-  $('dLabel').textContent = left===0 ? '오늘 도착합니다' : '일 뒤에 도착합니다';
   $('meetLine').textContent = KO_FULL.format(parse(cfg.end)) + '에 대전';
 
   /* rows */
@@ -461,12 +456,12 @@ function render(mapOnly){
 const ARRIVAL = new Date('2026-11-06T08:20:00Z'); // 2026-11-06 오후 5:20 KST
 function tickCountdown(){
   const diff = ARRIVAL - new Date();
-  const el = $('countdown');
-  if (diff <= 0){ el.textContent = '비행기 도착!'; return; }
+  if (diff <= 0){ $('dLeft').textContent = ''; $('dLabel').textContent = '도착했습니다!'; return; }
   const s = Math.floor(diff/1000);
   const d = Math.floor(s/86400), h = Math.floor(s%86400/3600),
         m = Math.floor(s%3600/60), sec = s%60;
-  el.textContent = `비행기 도착까지 ${d}일 ${h}시간 ${m}분 ${sec}초`;
+  $('dLeft').textContent = d;
+  $('dLabel').textContent = `일 ${h}시간 ${m}분 ${sec}초 남았습니다`;
 }
 tickCountdown();
 setInterval(tickCountdown, 1000);
