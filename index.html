@@ -54,6 +54,7 @@ h1 b{font-weight:700}
 .state .days strong{font-family:var(--la); font-size:62px; font-weight:500; line-height:.95; letter-spacing:-.02em}
 .state .days span{font-size:16px; color:var(--dim)}
 .state p{margin:.7em 0 0}
+.countdown{font-family:var(--la); font-size:13px; color:var(--dim); letter-spacing:.01em}
 
 .who{display:grid; grid-template-columns:1fr; gap:14px; padding:18px 0; border-bottom:1px solid var(--line)}
 .who h2{margin:0; font-size:17px; font-weight:700; display:flex; align-items:center; gap:8px}
@@ -61,8 +62,11 @@ h1 b{font-weight:700}
 .who dl{display:grid; grid-template-columns:auto 1fr; gap:2px 12px; margin:.6em 0 0; font-size:14.5px}
 .who dt{color:var(--dim)}
 .who dd{margin:0}
-.bar{height:3px; background:var(--line); margin:.9em 0 0; border-radius:2px; overflow:hidden}
-.bar i{display:block; height:100%; background:var(--warm); border-radius:2px}
+.bar{height:4px; background:var(--line); margin:1.1em 0 0; border-radius:2px; position:relative; cursor:pointer; touch-action:none; -webkit-tap-highlight-color:transparent}
+.bar::before{content:''; position:absolute; left:0; right:0; top:-13px; bottom:-13px}
+.bar i{display:block; height:100%; background:var(--warm); border-radius:2px; position:relative; pointer-events:none}
+.bar .thumb{position:absolute; right:-5px; top:50%; width:10px; height:10px; border-radius:50%;
+  background:var(--warm); box-shadow:0 0 0 3px var(--ink); transform:translateY(-50%)}
 
 section{margin:34px 0 0}
 h3{font-size:16px; font-weight:700; margin:0 0 .2em}
@@ -117,6 +121,8 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
   <div class="state">
     <div class="days"><strong id="dLeft" class="num">43</strong><span id="dLabel">일 뒤에 도착합니다</span></div>
     <p id="meetLine">10월 29일 목요일</p>
+    <div class="bar" id="barW" tabindex="0" role="slider" aria-label="지금까지 이동한 위치" aria-valuemin="0" aria-valuemax="100"><i id="barFill"><span class="thumb"></span></i></div>
+    <p id="countdown" class="countdown"></p>
   </div>
 
   <div class="who">
@@ -127,7 +133,6 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
         <dt>다음 도착</dt><dd id="nextW">제네바</dd>
         <dt>지금 내 시각</dt><dd id="clockW">오전 11:40</dd>
       </dl>
-      <div class="bar"><i id="barW"></i></div>
     </div>
   </div>
 
@@ -336,7 +341,8 @@ function render(mapOnly){
   $('nextW').textContent = c.next
     ? `${c.next.ko}까지 ${fmtKm(c.next.km-km)}km, ${Math.max(1,Math.ceil((c.next.km-km)/perDay))}일`
     : '대전 도착';
-  $('barW').style.width = (p*100).toFixed(1)+'%';
+  $('barFill').style.width = (p*100).toFixed(1)+'%';
+  $('barW').setAttribute('aria-valuenow', Math.round(p*100));
   const clock = tz => new Intl.DateTimeFormat('ko-KR',{hour:'numeric',minute:'2-digit',timeZone:tz}).format(instant);
   $('clockW').textContent = clock('Europe/Paris') + ', ' + (isDay(sv,45.19,5.72)?'해가 떠 있음':'밤');
   $('clockE').textContent = clock('Asia/Seoul') + ', ' + (isDay(sv,36.35,127.38)?'해가 떠 있음':'밤');
@@ -419,6 +425,51 @@ function render(mapOnly){
     applyZoom();
   });
 })();
+
+/* ---------- progress bar scrub ---------- */
+(function(){
+  const bar = $('barW');
+  let dragging=false;
+  function liveFrac(){
+    const total = Math.max(1, dayDiff(cfg.start, cfg.end));
+    const elapsedToday = (new Date() - parse(cfg.start)) / day;
+    return Math.max(0, Math.min(1, elapsedToday/total));
+  }
+  function apply(e){
+    const rect = bar.getBoundingClientRect();
+    const x = Math.max(rect.left, Math.min(rect.right, e.clientX));
+    const raw = (x-rect.left)/rect.width;
+    viewFrac = Math.max(0, Math.min(raw, liveFrac()));
+    render();
+  }
+  bar.addEventListener('pointerdown', e=>{
+    dragging=true; bar.setPointerCapture(e.pointerId);
+    apply(e);
+  });
+  bar.addEventListener('pointermove', e=>{
+    if (dragging) apply(e);
+  });
+  function endScrub(){
+    if (!dragging) return;
+    dragging=false; viewFrac=null; render();
+  }
+  bar.addEventListener('pointerup', endScrub);
+  bar.addEventListener('pointercancel', endScrub);
+})();
+
+/* ---------- flight countdown ---------- */
+const ARRIVAL = new Date('2026-11-06T08:20:00Z'); // 2026-11-06 오후 5:20 KST
+function tickCountdown(){
+  const diff = ARRIVAL - new Date();
+  const el = $('countdown');
+  if (diff <= 0){ el.textContent = '비행기 도착!'; return; }
+  const s = Math.floor(diff/1000);
+  const d = Math.floor(s/86400), h = Math.floor(s%86400/3600),
+        m = Math.floor(s%3600/60), sec = s%60;
+  el.textContent = `비행기 도착까지 ${d}일 ${h}시간 ${m}분 ${sec}초`;
+}
+tickCountdown();
+setInterval(tickCountdown, 1000);
 
 /* ---------- offline ---------- */
 if ('serviceWorker' in navigator) {
