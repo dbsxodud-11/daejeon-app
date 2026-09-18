@@ -418,7 +418,7 @@ function render(mapOnly){
   el.addEventListener('pointercancel', releasePointer);
   el.addEventListener('wheel', e=>{
     e.preventDefault();
-    zoom = Math.max(ZMIN, Math.min(ZMAX, zoom*Math.exp(-e.deltaY*0.0015)));
+    zoom = Math.max(ZMIN, Math.min(ZMAX, zoom*Math.exp(e.deltaY*0.0015)));
     applyZoom();
   }, {passive:false});
   el.addEventListener('dblclick', ()=>{
