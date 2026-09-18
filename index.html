@@ -112,7 +112,7 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
       </g>
     </svg>
   </div>
-  <p class="hint" style="text-align:center; margin:-2px 0 1.1em">끌어서 돌리고, 두 손가락(또는 휠)으로 확대할 수 있어요</p>
+  <p class="hint" style="text-align:center; margin:-2px 0 1.1em">끌어서 돌리고, 두 손가락(또는 Ctrl+휠)으로 확대할 수 있어요</p>
 
   <div class="state">
     <div class="days"><strong id="dLeft" class="num">43</strong><span id="dLabel">일 뒤에 도착합니다</span></div>
@@ -409,8 +409,9 @@ function render(mapOnly){
   el.addEventListener('pointerup', releasePointer);
   el.addEventListener('pointercancel', releasePointer);
   el.addEventListener('wheel', e=>{
+    if (!e.ctrlKey && !e.metaKey) return; // plain scroll: let the page scroll normally
     e.preventDefault();
-    zoom = Math.max(ZMIN, Math.min(ZMAX, zoom*Math.exp(e.deltaY*0.0015)));
+    zoom = Math.max(ZMIN, Math.min(ZMAX, zoom*Math.exp(-e.deltaY*0.0015)));
     applyZoom();
   }, {passive:false});
   el.addEventListener('dblclick', ()=>{
