@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>대전으로 가는 길</title>
-<meta name="theme-color" content="#07111c">
+<meta name="theme-color" content="#f2ece1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="대전까지">
@@ -15,14 +15,17 @@
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --ink:#07111c; --panel:#0c1a29; --sea:#112538;
-  --land:#c9b896; --text:#ede5d6; --dim:#8695a6;
+  /* 첫 화면 - 밝은 쪽 */
+  --ink:#f2ece1; --panel:#fff; --text:#1c2a39; --dim:#6b7a8a;
+  --line:rgba(28,42,57,.16);
+  /* 지구본과 도시 화면 - 어두운 쪽. 사진 위에 얹히므로 그대로 둔다 */
+  --deep:#07111c; --sea:#112538; --land:#c9b896;
+  --ondark:#ede5d6; --ondim:#8f9eae;
   --warm:#f4b551; --rose:#ee7e9b;
-  --line:rgba(237,229,214,.13);
   --ko:'Gowun Batang', serif;
   --la:'Archivo', 'Gowun Batang', sans-serif;
 }
-:root:not([data-theme="light"]){ color-scheme:dark; }
+:root{ color-scheme:light; }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{background:var(--ink); color:var(--text); font-family:var(--ko);
@@ -33,7 +36,8 @@ h1{font-size:23px; font-weight:400; line-height:1.5; margin:.35em 0 1.4em}
 h1 b{font-weight:700}
 .num{font-family:var(--la); font-variant-numeric:tabular-nums}
 
-.globe{position:relative; width:100%; aspect-ratio:1/1; margin:0 0 6px; cursor:grab; touch-action:none}
+.globe{position:relative; width:100%; aspect-ratio:1/1; margin:0 0 6px; cursor:grab; touch-action:none;
+  border-radius:50%; box-shadow:0 14px 44px rgba(28,42,57,.26)}
 .globe.dragging{cursor:grabbing}
 .globe svg{position:absolute; inset:0; width:100%; height:100%}
 #sky{fill:var(--sea)}
@@ -42,9 +46,9 @@ h1 b{font-weight:700}
 .route-base{fill:none; stroke:rgba(237,229,214,.30); stroke-width:5; stroke-dasharray:2 15; stroke-linecap:round}
 .trail{fill:none; stroke:var(--warm); stroke-width:8; stroke-linecap:round}
 .city{fill:rgba(237,229,214,.5)}
-.city.done{fill:var(--text)}
+.city.done{fill:var(--ondark)}
 .goal circle{fill:none; stroke:rgba(238,126,155,.8); stroke-width:4}
-.lbl{font-family:var(--ko); font-size:34px; font-weight:700; fill:var(--text); paint-order:stroke;
+.lbl{font-family:var(--ko); font-size:34px; font-weight:700; fill:var(--ondark); paint-order:stroke;
      stroke:rgba(7,17,28,.8); stroke-width:9px; stroke-linejoin:round}
 .lbl.small{font-size:29px; font-weight:400; fill:rgba(237,229,214,.82)}
 .avatar{font-size:78px; text-anchor:middle; dominant-baseline:central}
@@ -78,7 +82,7 @@ h3{font-size:16px; font-weight:700; margin:0 0 .2em}
 .sched .la{font-family:var(--la); font-size:12.5px; color:var(--dim); margin-left:6px}
 .sched .far{opacity:.55}
 
-input[type=text]{width:100%; background:#0a1523; color:var(--text);
+input[type=text]{width:100%; background:#0a1523; color:var(--ondark);
   border:1px solid var(--line); border-radius:8px; padding:9px 11px; font-family:var(--la); font-size:14px}
 button{background:transparent; color:var(--text); border:1px solid var(--line); white-space:nowrap;
   border-radius:8px; padding:9px 14px; font-family:var(--ko); font-size:14px; cursor:pointer}
@@ -94,7 +98,7 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
 .globe svg{transition:transform .6s cubic-bezier(.45,0,.2,1), opacity .4s ease .12s}
 .globe.diving svg{opacity:0}
 
-.scene{position:fixed; inset:0; z-index:40; background:var(--ink);
+.scene{position:fixed; inset:0; z-index:40; background:var(--deep); color:var(--ondark);
   opacity:0; pointer-events:none; transition:opacity .4s ease}
 .scene.on{opacity:1; pointer-events:auto}
 .scene-bg{position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
@@ -115,33 +119,33 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
 
 .scene-top{display:flex; align-items:flex-start; justify-content:space-between; gap:10px}
 .scene-acts{display:flex; flex-direction:column; gap:7px; align-items:flex-end}
-.sbtn{font-family:var(--ko); font-size:14px; color:var(--ink); background:var(--warm);
+.sbtn{font-family:var(--ko); font-size:14px; color:var(--deep); background:var(--warm);
   border:0; border-radius:999px; padding:7px 15px; cursor:pointer; white-space:nowrap;
   box-shadow:0 2px 14px rgba(7,17,28,.5); -webkit-tap-highlight-color:transparent}
 .sbtn:active{transform:translateY(1px)}
 .sbtn.rose{background:var(--rose)}
-.sbtn.ghost{background:rgba(7,17,28,.55); color:var(--text);
+.sbtn.ghost{background:rgba(7,17,28,.55); color:var(--ondark);
   border:1px solid rgba(237,229,214,.26); box-shadow:none; font-size:13.5px; padding:6px 13px}
 .sbtn .dot{display:inline-block; width:6px; height:6px; border-radius:50%;
-  background:var(--ink); opacity:.55; margin-left:5px; vertical-align:middle}
-.sbtn.empty{background:rgba(7,17,28,.55); color:var(--dim);
+  background:var(--deep); opacity:.55; margin-left:5px; vertical-align:middle}
+.sbtn.empty{background:rgba(7,17,28,.55); color:var(--ondim);
   border:1px solid rgba(237,229,214,.2); box-shadow:none}
 
 .scene-head{margin-top:auto; padding-bottom:22px}
 .scene-city{font-size:34px; font-weight:700; margin:0; line-height:1.2;
   text-shadow:0 2px 22px rgba(7,17,28,.85)}
-.scene-la{font-family:var(--la); font-size:13px; color:var(--dim); margin:.15em 0 0; letter-spacing:.05em;
+.scene-la{font-family:var(--la); font-size:13px; color:var(--ondim); margin:.15em 0 0; letter-spacing:.05em;
   text-shadow:0 1px 10px rgba(7,17,28,.9)}
 .scene-when{font-size:14px; color:var(--warm); margin:.5em 0 0; text-shadow:0 1px 10px rgba(7,17,28,.9)}
-.scene-when.dim{color:var(--dim)}
+.scene-when.dim{color:var(--ondim)}
 
 /* 도시 넘기기 */
 .scene-nav{display:flex; align-items:center; gap:10px; margin:0 0 10px}
-.navb{font-family:var(--la); font-size:20px; line-height:1; color:var(--text);
+.navb{font-family:var(--la); font-size:20px; line-height:1; color:var(--ondark);
   background:rgba(7,17,28,.5); border:1px solid rgba(237,229,214,.26); border-radius:50%;
   width:34px; height:34px; cursor:pointer; padding:0; -webkit-tap-highlight-color:transparent}
 .navb:disabled{opacity:.25; cursor:default}
-.navno{font-family:var(--la); font-size:12.5px; color:var(--dim); letter-spacing:.04em}
+.navno{font-family:var(--la); font-size:12.5px; color:var(--ondim); letter-spacing:.04em}
 
 /* 아직 안 간 도시 */
 .scene-bg.ahead{filter:blur(7px) saturate(.5) brightness(.55); transform:scale(1.14)}
@@ -168,7 +172,7 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
 
 .jlabels{display:flex; justify-content:space-between; gap:14px; margin-top:2px}
 .jlabels b{display:block; font-size:15px; font-weight:700; text-shadow:0 1px 10px rgba(7,17,28,.9)}
-.jlabels span{display:block; font-family:var(--la); font-size:12.5px; color:var(--dim);
+.jlabels span{display:block; font-family:var(--la); font-size:12.5px; color:var(--ondim);
   text-shadow:0 1px 10px rgba(7,17,28,.9)}
 .jlabels .r{text-align:right}
 
@@ -180,43 +184,43 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
 .viewer.on{opacity:1; pointer-events:auto}
 .viewer video, .viewer img{max-width:100%; max-height:100%; border-radius:12px; display:block}
 .vclose{position:absolute; top:calc(env(safe-area-inset-top, 0px) + 14px); right:16px;
-  font-family:var(--ko); font-size:14px; color:var(--text); background:rgba(237,229,214,.12);
+  font-family:var(--ko); font-size:14px; color:var(--ondark); background:rgba(237,229,214,.12);
   border:1px solid rgba(237,229,214,.25); border-radius:999px; padding:6px 14px; cursor:pointer}
-.vcap{margin:0; font-size:14px; color:var(--dim); text-align:center}
-.vspin{color:var(--dim); font-size:14px}
+.vcap{margin:0; font-size:14px; color:var(--ondim); text-align:center}
+.vspin{color:var(--ondim); font-size:14px}
 
 /* ---------- 알림 한 줄 ---------- */
 .toast{position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom, 0px) + 28px);
   transform:translate(-50%, 14px); z-index:80; max-width:88vw;
-  background:var(--panel); color:var(--text); border:1px solid var(--line);
+  background:var(--deep); color:var(--ondark); border:1px solid rgba(237,229,214,.22);
   border-radius:999px; padding:9px 18px; font-size:14px; text-align:center;
   opacity:0; pointer-events:none; transition:opacity .22s ease, transform .22s ease}
 .toast.on{opacity:1; transform:translate(-50%, 0)}
 
 /* ---------- 올리는 화면 (태영만) ---------- */
-.admin{position:fixed; inset:0; z-index:70; background:rgba(4,10,17,.97);
+.admin{position:fixed; inset:0; z-index:70; background:rgba(4,10,17,.97); color:var(--ondark);
   overflow-y:auto; opacity:0; pointer-events:none; transition:opacity .25s ease}
 .admin.on{opacity:1; pointer-events:auto}
 .admin-in{max-width:470px; margin:0 auto;
   padding:calc(env(safe-area-inset-top, 0px) + 22px) 22px calc(env(safe-area-inset-bottom, 0px) + 40px)}
 .admin h2{font-size:19px; margin:0 0 .3em}
-.admin .hint{margin-bottom:1.4em}
+.admin .hint{margin-bottom:1.4em; color:var(--ondim)}
 .arow{display:grid; gap:7px; margin:0 0 20px}
 .arow label{font-size:14.5px; font-weight:700}
 .admin input[type=text], .admin input[type=password], .admin input[type=date]{
-  font-family:var(--la); font-size:15px; color:var(--text); background:var(--panel);
-  border:1px solid var(--line); border-radius:9px; padding:10px 12px; width:100%}
+  font-family:var(--la); font-size:15px; color:var(--ondark); background:rgba(237,229,214,.07);
+  border:1px solid rgba(237,229,214,.22); border-radius:9px; padding:10px 12px; width:100%}
 .afile{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
-.afile input[type=file]{font-family:var(--la); font-size:13px; color:var(--dim); max-width:100%}
-.aprog{height:3px; background:var(--line); border-radius:2px; overflow:hidden}
+.afile input[type=file]{font-family:var(--la); font-size:13px; color:var(--ondim); max-width:100%}
+.aprog{height:3px; background:rgba(237,229,214,.16); border-radius:2px; overflow:hidden}
 .aprog i{display:block; height:100%; width:0; background:var(--warm); transition:width .2s linear}
-.alist{margin:26px 0 0; padding:0; list-style:none; border-top:1px solid var(--line)}
+.alist{margin:26px 0 0; padding:0; list-style:none; border-top:1px solid rgba(237,229,214,.16)}
 .alist li{display:flex; align-items:center; justify-content:space-between; gap:12px;
-  padding:11px 0; border-bottom:1px solid var(--line); font-size:14px}
-.alist .k{font-family:var(--la); font-size:12.5px; color:var(--dim)}
+  padding:11px 0; border-bottom:1px solid rgba(237,229,214,.16); font-size:14px}
+.alist .k{font-family:var(--la); font-size:12.5px; color:var(--ondim)}
 .alist button{font-family:var(--ko); font-size:13px; color:var(--rose); background:none;
   border:1px solid rgba(238,126,155,.45); border-radius:999px; padding:4px 11px; cursor:pointer}
-.amsg{font-size:14px; color:var(--dim); min-height:1.5em; margin:.4em 0 0}
+.amsg{font-size:14px; color:var(--ondim); min-height:1.5em; margin:.4em 0 0}
 </style>
 </head>
 <body>
