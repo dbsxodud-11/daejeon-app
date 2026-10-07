@@ -1,0 +1,162 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>testing</title>
+<script type="module">
+/* worker.js 를 가짜 R2 버킷에 물려서 실제로 돌려본다. Cloudflare 없이 검증용. */
+const mod = await import('./worker.js');
+const W = mod.default;
+
+function fakeBucket(){
+  const store = new Map();                 // key -> {bytes:Uint8Array, type}
+  const toBytes = async v => {
+    if (v instanceof Uint8Array) return v;
+    if (v instanceof ArrayBuffer) return new Uint8Array(v);
+    if (typeof v === 'string') return new TextEncoder().encode(v);
+    if (v && typeof v.getReader === 'function') return new Uint8Array(await new Response(v).arrayBuffer());
+    return new Uint8Array(await new Response(v).arrayBuffer());
+  };
+  const wrap = (bytes, type) => ({
+    body: bytes,
+    size: bytes.length,
+    httpEtag: '"' + bytes.length + '"',
+    httpMetadata: { contentType: type },
+    async json(){ return JSON.parse(new TextDecoder().decode(bytes)); },
+    async text(){ return new TextDecoder().decode(bytes); }
+  });
+  return {
+    _store: store,
+    async put(key, body, opts){
+      const bytes = await toBytes(body);
+      store.set(key, { bytes, type: (opts && opts.httpMetadata && opts.httpMetadata.contentType) || '' });
+      return { size: bytes.length };
+    },
+    async get(key, opts){
+      const rec = store.get(key);
+      if (!rec) return null;
+      if (opts && opts.range){
+        const { offset, length } = opts.range;
+        return wrap(rec.bytes.slice(offset, offset + length), rec.type);
+      }
+      return wrap(rec.bytes, rec.type);
+    },
+    async head(key){
+      const rec = store.get(key);
+      return rec ? wrap(rec.bytes, rec.type) : null;
+    },
+    async delete(key){ store.delete(key); }
+  };
+}
+
+const env = { BUCKET: fakeBucket(), UPLOAD_KEY: 'open-sesame', ALLOW_ORIGIN: '*' };
+const B = 'https://w.test';
+const call = (path, init) => W.fetch(new Request(B + path, init), env);
+
+const results = [];
+function ok(name, cond, detail){ results.push((cond ? 'PASS ' : 'FAIL ') + name + (detail ? ' (' + detail + ')' : '')); }
+
+const VID = new Uint8Array(Array.from({length: 5000}, (_, i) => i % 251));
+const blob = t => new Blob([VID], { type: t });
+
+try {
+  // 1. 열쇠 없이 올리기
+  let r = await call('/upload?kind=commute&date=2026-10-08', { method:'POST', body: blob('video/mp4'), headers:{'content-type':'video/mp4'} });
+  ok('열쇠 없으면 401', r.status === 401, 'got ' + r.status);
+
+  // 2. 틀린 열쇠
+  r = await call('/upload?kind=commute&date=2026-10-08', { method:'POST', body: blob('video/mp4'), headers:{'content-type':'video/mp4','x-key':'nope'} });
+  ok('틀린 열쇠 401', r.status === 401, 'got ' + r.status);
+
+  // 3. 못 쓰는 형식
+  r = await call('/upload?kind=commute&date=2026-10-08', { method:'POST', body: blob('application/zip'), headers:{'content-type':'application/zip','x-key':'open-sesame'} });
+  ok('이상한 형식 415', r.status === 415, 'got ' + r.status);
+
+  // 4. 날짜 형식
+  r = await call('/upload?kind=commute&date=oct8', { method:'POST', body: blob('video/mp4'), headers:{'content-type':'video/mp4','x-key':'open-sesame'} });
+  ok('날짜 틀리면 400', r.status === 400, 'got ' + r.status);
+
+  // 5. 제대로 올리기
+  r = await call('/upload?kind=commute&date=2026-10-08', { method:'POST', body: blob('video/mp4'), headers:{'content-type':'video/mp4','x-key':'open-sesame'} });
+  let j = await r.json();
+  ok('출근 영상 올리기', r.status === 200 && j.key === '2026-10-08/commute.mp4', r.status + ' ' + JSON.stringify(j));
+  ok('크기 기록', j.size === VID.length, 'got ' + j.size);
+
+  // 6. 아이폰 mov
+  r = await call('/upload?kind=dinner&date=2026-10-08', { method:'POST', body: blob('video/quicktime'), headers:{'content-type':'video/quicktime','x-key':'open-sesame'} });
+  j = await r.json();
+  ok('mov 는 .mov 로', j.key === '2026-10-08/dinner.mov', JSON.stringify(j));
+
+  // 7. 목록
+  r = await call('/feed');
+  const feed = await r.json();
+  ok('목록에 둘 다', !!(feed['2026-10-08'] && feed['2026-10-08'].commute && feed['2026-10-08'].dinner), JSON.stringify(feed));
+
+  // 8. 통째로 받기
+  r = await call('/m/2026-10-08/commute.mp4');
+  const whole = new Uint8Array(await r.arrayBuffer());
+  ok('전체 내려받기', r.status === 200 && whole.length === VID.length, r.status + ' len ' + whole.length);
+  ok('내용 일치', whole[0] === VID[0] && whole[4999] === VID[4999]);
+  ok('accept-ranges 있음', r.headers.get('accept-ranges') === 'bytes', r.headers.get('accept-ranges'));
+  ok('content-type 보존', r.headers.get('content-type') === 'video/mp4', r.headers.get('content-type'));
+
+  // 9. 구간 요청 (사파리 영상 재생에 필수)
+  r = await call('/m/2026-10-08/commute.mp4', { headers: { range: 'bytes=10-19' } });
+  const part = new Uint8Array(await r.arrayBuffer());
+  ok('구간 206', r.status === 206, 'got ' + r.status);
+  ok('구간 길이 10', part.length === 10, 'got ' + part.length);
+  ok('구간 content-range', r.headers.get('content-range') === 'bytes 10-19/5000', r.headers.get('content-range'));
+  ok('구간 내용 일치', part[0] === VID[10] && part[9] === VID[19]);
+
+  // 10. 열린 구간 bytes=4990-
+  r = await call('/m/2026-10-08/commute.mp4', { headers: { range: 'bytes=4990-' } });
+  const tail = new Uint8Array(await r.arrayBuffer());
+  ok('열린 구간', r.status === 206 && tail.length === 10, r.status + ' len ' + tail.length);
+
+  // 11. 끝에서부터 bytes=-10
+  r = await call('/m/2026-10-08/commute.mp4', { headers: { range: 'bytes=-10' } });
+  const suf = new Uint8Array(await r.arrayBuffer());
+  ok('뒤에서 구간', r.status === 206 && suf.length === 10 && suf[9] === VID[4999], r.status + ' len ' + suf.length);
+
+  // 12. 범위 넘어가면 416
+  r = await call('/m/2026-10-08/commute.mp4', { headers: { range: 'bytes=9999-100000' } });
+  ok('범위 밖 416', r.status === 416, 'got ' + r.status);
+
+  // 13. 같은 날 다시 올리면 옛 파일 정리
+  r = await call('/upload?kind=dinner&date=2026-10-08', { method:'POST', body: blob('image/jpeg'), headers:{'content-type':'image/jpeg','x-key':'open-sesame'} });
+  j = await r.json();
+  ok('덮어쓰면 확장자 바뀜', j.key === '2026-10-08/dinner.jpg', JSON.stringify(j));
+  ok('옛 mov 지워짐', !env.BUCKET._store.has('2026-10-08/dinner.mov'));
+
+  // 14. feed.json 은 미디어로 못 받게
+  r = await call('/m/feed.json');
+  ok('feed.json 가림', r.status === 404, 'got ' + r.status);
+
+  // 15. 없는 파일
+  r = await call('/m/2099-01-01/commute.mp4');
+  ok('없는 파일 404', r.status === 404, 'got ' + r.status);
+
+  // 16. 지우기
+  r = await call('/delete?kind=commute&date=2026-10-08', { method:'POST', headers:{'x-key':'open-sesame'} });
+  ok('지우기 200', r.status === 200, 'got ' + r.status);
+  r = await call('/feed'); const f2 = await r.json();
+  ok('목록에서 빠짐', !(f2['2026-10-08'] && f2['2026-10-08'].commute), JSON.stringify(f2));
+  ok('파일도 사라짐', !env.BUCKET._store.has('2026-10-08/commute.mp4'));
+
+  // 17. 열쇠 없이 지우기
+  r = await call('/delete?kind=dinner&date=2026-10-08', { method:'POST' });
+  ok('열쇠 없이 지우기 401', r.status === 401, 'got ' + r.status);
+
+  // 18. CORS 사전 요청
+  r = await call('/upload', { method:'OPTIONS' });
+  ok('OPTIONS 통과', r.headers.get('access-control-allow-origin') === '*', r.headers.get('access-control-allow-origin'));
+
+  // 19. /check
+  r = await call('/check', { method:'POST', headers:{'x-key':'open-sesame'} });
+  ok('열쇠 확인 200', r.status === 200, 'got ' + r.status);
+
+} catch (e) {
+  results.push('THREW ' + (e && e.message));
+}
+
+const bad = results.filter(x => !x.startsWith('PASS')).length;
+document.title = 'T ' + (bad ? bad + '개 실패' : '모두 통과 (' + results.length + ')') + ' :: ' + results.join(' | ');
+</script>

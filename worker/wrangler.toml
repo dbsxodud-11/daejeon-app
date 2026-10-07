@@ -1,0 +1,15 @@
+name = "daejeon-media"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+
+# 광서가 보게 될 주소만 허용하려면 아래를 깃허브 페이지 주소로 바꾼다.
+# 로컬에서 시험하는 동안에는 * 로 두는 게 편하다.
+[vars]
+ALLOW_ORIGIN = "*"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "daejeon-media"
+
+# UPLOAD_KEY 는 여기 적지 않는다. 아래 명령으로 따로 넣는다.
+#   npx wrangler secret put UPLOAD_KEY
