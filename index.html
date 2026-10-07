@@ -19,7 +19,7 @@
   --ink:#f2ece1; --panel:#fff; --text:#1c2a39; --dim:#6b7a8a;
   --line:rgba(28,42,57,.16);
   /* 지구본과 도시 화면 - 어두운 쪽. 사진 위에 얹히므로 그대로 둔다 */
-  --deep:#07111c; --sea:#112538; --land:#c9b896;
+  --deep:#07111c; --sea:#1d5a8a; --land:#7da568;
   --ondark:#ede5d6; --ondim:#8f9eae;
   --warm:#f4b551; --rose:#ee7e9b;
   --ko:'Gowun Batang', serif;
@@ -29,7 +29,8 @@
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{background:var(--ink); color:var(--text); font-family:var(--ko);
-  font-size:16px; line-height:1.75; letter-spacing:.005em; -webkit-font-smoothing:antialiased}
+  font-size:16px; line-height:1.75; letter-spacing:.005em; -webkit-font-smoothing:antialiased;
+  word-break:keep-all; overflow-wrap:break-word}  /* 한글은 낱말 단위로 줄을 바꾼다 */
 main{max-width:470px; margin:0 auto; padding:26px 22px 40px}
 .eyebrow{font-family:var(--la); font-size:12.5px; font-weight:500; color:var(--dim); letter-spacing:.04em}
 h1{font-size:23px; font-weight:400; line-height:1.5; margin:.35em 0 1.4em}
@@ -225,7 +226,7 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
 </head>
 <body>
 <main>
-  <h1><b>광서</b> 보러<br>열심히 뛰어가는 중~~ 💓</h1>
+  <h1><b>광서</b>야 이제 진짜 얼마 안 남았어!!<br>금방 만나러 갈게~~ 💓</h1>
 
   <div class="globe" id="globe">
     <svg id="map" viewBox="0 0 1000 1000" aria-label="그르노블에서 대전으로 가는 경로">
@@ -250,7 +251,7 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
       </g>
     </svg>
   </div>
-  <p class="hint" style="text-align:center; margin:-2px 0 1.1em">아바타를 누르면 지금 있는 도시가 열려요 · 끌어서 돌리고 두 손가락으로 확대</p>
+  <p class="hint" style="text-align:center; margin:-2px 0 1.1em">끌어서 돌리고 두 손가락으로 확대 · 아바타를 클릭해 보세요</p>
 
   <div class="state">
     <div class="days"><strong id="dLeft" class="num">43</strong><span id="dLabel">일 뒤에 도착합니다</span></div>
