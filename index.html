@@ -171,7 +171,8 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
 
 /* 가운데 선 */
 .journey{padding-bottom:8px}
-.jline{position:relative; height:46px; margin:0 4px}
+.jline{position:relative; height:46px; margin:0 4px; cursor:grab; touch-action:none}
+.jline.drag{cursor:grabbing}
 .jrail{position:absolute; left:0; right:0; top:50%; height:2px; transform:translateY(-50%);
   background:rgba(237,229,214,.26); border-radius:2px}
 .jfill{position:absolute; left:0; top:50%; height:2px; transform:translateY(-50%);
@@ -186,6 +187,9 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
   transition:left 1.1s cubic-bezier(.4,0,.2,1) .25s;
   box-shadow:0 0 22px rgba(244,181,81,.5)}
 .jme.walk{animation:bob 1.5s ease-in-out infinite}
+/* 끄는 동안에는 손가락을 그대로 따라와야 한다 */
+.jme.drag{animation:none; transition:none}
+.jfill.drag{transition:none}
 @keyframes bob{0%,100%{margin-top:0} 50%{margin-top:-4px}}
 
 .jlabels{display:flex; justify-content:space-between; gap:14px; margin-top:2px}
@@ -521,7 +525,14 @@ const tripDays = () => Math.max(1, (ARRIVAL - parse(cfg.start))/day);
    그 도시를 그 날짜에 지나도록 일정이 다시 맞춰진다.
      그르노블 출발 -> 치앙마이(오늘) -> 대전 도착
    이렇게 두면 앞 구간은 하루 360km, 뒤 구간은 218km 로 다르게 걷는다. */
-const PACE = [{ city: '치앙마이', date: '2026-10-07' }];
+const PACE = [
+  { city: '치앙마이', date: '2026-10-07' },
+  { city: '하노이',   date: '2026-10-11' },
+  { city: '홍콩',     date: '2026-10-15' },
+  { city: '타이베이', date: '2026-10-19' },
+  { city: '상하이',   date: '2026-10-23' },
+  { city: '서울',     date: '2026-10-27' }
+];
 
 const ANCHORS = (() => {
   const out = [{ km: 0, t: parse(cfg.start).getTime() }];
@@ -808,7 +819,7 @@ function pickCentered(){
     const dd = Math.abs(el.offsetLeft + el.offsetWidth / 2 - mid);
     if (dd < bd){ bd = dd; best = el; }
   }
-  if (best && best.dataset.d !== sceneDate) fillScene(best.dataset.d, true);
+  if (best && best.dataset.d !== sceneDate) fillScene(best.dataset.d, 'rail');
 }
 
 function centerDay(d, smooth){
@@ -846,8 +857,9 @@ function refreshScene(){ markRail(); markButtons(); }
 /* ---------- 장면 채우기 ---------- */
 let sceneDate = '';
 
-// fromRail 이면 띠를 밀어서 넘어온 것이다. 걸어오는 연출과 띠 되돌리기를 건너뛴다.
-function fillScene(d, fromRail){
+// mode: 없으면 평소대로 (걸어오는 연출 + 띠를 부드럽게 맞춤)
+//       'rail' 띠를 직접 밀고 있는 중   'drag' 아바타를 끌고 있는 중
+function fillScene(d, mode){
   sceneDate = DATES.indexOf(d) >= 0 ? d : DATES[DATES.length - 1];
   const idx = DATES.indexOf(sceneDate);
   const today = todayStr();
@@ -904,8 +916,9 @@ function fillScene(d, fromRail){
     $('jToD').textContent = '여기서 만나요';
   }
 
-  if (fromRail){
+  if (mode){
     fill.style.width = pct; me.style.left = pct;
+    if (mode === 'drag') centerDay(sceneDate, false);   // 띠가 곧바로 따라온다
   } else {
     fill.style.width = '0%'; me.style.left = '0%';
     setTimeout(() => { fill.style.width = pct; me.style.left = pct; }, 40);
@@ -931,6 +944,45 @@ function markButtons(){
       b.classList.toggle('empty', !e);
     });
 }
+
+/* ---------- 선 위의 아바타를 끌어서 날짜 옮기기 ----------
+   선을 좌우로 끌면 날짜가 따라온다. 선 하나를 다 건너면 그 구간,
+   즉 다음 도시까지의 날수만큼 지나간다. 아바타만 잡기엔 너무 작아서
+   선 전체를 손잡이로 쓴다. */
+(function(){
+  const line = document.querySelector('.jline');
+  const me = $('jMe'), fill = $('jFill');
+  let on = false, x0 = 0, i0 = 0, step = 60;
+
+  line.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    on = true;
+    try { line.setPointerCapture(e.pointerId); } catch (err) {}
+    x0 = e.clientX;
+    i0 = DATES.indexOf(sceneDate);
+    const c = cityOnDate(sceneDate);
+    const legDays = c.next && c.last
+      ? Math.max(1, Math.round((timeAtKm(c.next.km) - timeAtKm(c.last.km)) / day))
+      : 1;
+    step = Math.max(16, line.getBoundingClientRect().width / legDays);
+    line.classList.add('drag'); me.classList.add('drag'); fill.classList.add('drag');
+  });
+
+  line.addEventListener('pointermove', e => {
+    if (!on) return;
+    const i = Math.max(0, Math.min(DATES.length - 1,
+                                   i0 + Math.round((e.clientX - x0) / step)));
+    if (DATES[i] !== sceneDate) fillScene(DATES[i], 'drag');
+  });
+
+  function off(){
+    if (!on) return;
+    on = false;
+    line.classList.remove('drag'); me.classList.remove('drag'); fill.classList.remove('drag');
+  }
+  line.addEventListener('pointerup', off);
+  line.addEventListener('pointercancel', off);
+})();
 
 /* ---------- 하루씩 넘기기 ---------- */
 function gotoDay(delta){
