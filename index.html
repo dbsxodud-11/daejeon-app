@@ -770,7 +770,7 @@ function entryOn(d, kind){
 }
 
 /* ---------- 날짜 띠 ---------- */
-let railReady = false, railLock = false, railTimer = null, settleTimer = null;
+let railReady = false, railLock = false, railRaf = 0, settleTimer = null;
 
 function buildRail(){
   if (railReady) return;
@@ -785,11 +785,18 @@ function buildRail(){
     const b = e.target.closest('.day');
     if (b) fillScene(b.dataset.d);
   });
-  // 밀어서 멈추면 가운데 온 날짜를 고른다
+  // 데스크톱 마우스는 세로로만 굴러서 가로 띠에 아무 일도 안 일어난다.
+  // 세로로 굴린 만큼 가로로 흘려준다. 트랙패드의 가로 스크롤은 건드리지 않는다.
+  rail.addEventListener('wheel', e => {
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    e.preventDefault();
+    rail.scrollLeft += e.deltaY;
+  }, { passive: false });
+
+  // 멈춘 뒤에 한 번 고르면 뚝뚝 끊겨 보인다. 미는 동안 매 프레임 따라오게 한다.
   rail.addEventListener('scroll', () => {
-    if (railLock) return;
-    clearTimeout(railTimer);
-    railTimer = setTimeout(pickCentered, 90);
+    if (railLock || railRaf) return;
+    railRaf = requestAnimationFrame(() => { railRaf = 0; pickCentered(); });
   }, { passive: true });
 }
 
@@ -804,16 +811,15 @@ function pickCentered(){
   if (best && best.dataset.d !== sceneDate) fillScene(best.dataset.d, true);
 }
 
-function centerDay(d){
+function centerDay(d, smooth){
   const rail = $('dateRail');
   const el = rail.querySelector('[data-d="' + d + '"]');
   if (!el) return;
   railLock = true;
-  clearTimeout(railTimer);
   clearTimeout(settleTimer);
-  // 곧바로 옮긴다. 부드럽게 굴리면 그 사이에 스크롤 감지가 끼어들어
-  // 고른 날짜를 지나가던 날로 바꿔 버린다.
-  rail.scrollLeft = el.offsetLeft + el.offsetWidth / 2 - rail.clientWidth / 2;
+  // 굴러가는 동안에는 잠겨 있고, 진짜로 멈춘 뒤에야 감지를 다시 켠다.
+  rail.scrollTo({ left: el.offsetLeft + el.offsetWidth / 2 - rail.clientWidth / 2,
+                  behavior: smooth ? 'smooth' : 'auto' });
   // 진짜로 멈춘 것을 보고 잠금을 푼다
   let last = -1, still = 0;
   const settle = () => {
@@ -868,8 +874,7 @@ function fillScene(d, fromRail){
   if (img.getAttribute('src') === src){
     img.hidden = !(img.complete && img.naturalWidth > 0);
   } else {
-    img.hidden = true;
-    img.src = src;
+    img.src = src;   // 다 뜰 때까지 앞 사진을 그대로 둔다. 넘길 때 덜 깜빡인다
   }
 
   const when = $('sceneWhen');
@@ -904,7 +909,7 @@ function fillScene(d, fromRail){
   } else {
     fill.style.width = '0%'; me.style.left = '0%';
     setTimeout(() => { fill.style.width = pct; me.style.left = pct; }, 40);
-    centerDay(sceneDate);
+    centerDay(sceneDate, sceneOpen);
   }
 
   markRail();
