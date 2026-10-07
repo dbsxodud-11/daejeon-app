@@ -153,6 +153,22 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
 .scene-bg.ahead{filter:blur(7px) saturate(.5) brightness(.55); transform:scale(1.14)}
 .scene.on .scene-bg.ahead{transform:scale(1.1)}
 
+/* 날짜 띠. 좌우로 밀면 날짜가 바뀐다 */
+.rail{display:flex; gap:4px; overflow-x:auto; overscroll-behavior-x:contain;
+  scroll-snap-type:x mandatory; padding:4px 50% 10px; margin:0 -20px;
+  scrollbar-width:none; -ms-overflow-style:none; -webkit-overflow-scrolling:touch}
+.rail::-webkit-scrollbar{display:none}
+.day{flex:0 0 auto; scroll-snap-align:center; background:none; border:0;
+  padding:4px 9px 3px; border-radius:9px; cursor:pointer; white-space:nowrap;
+  font-family:var(--la); font-size:12.5px; line-height:1.3; color:var(--ondim);
+  -webkit-tap-highlight-color:transparent}
+.day.ahead{opacity:.38}
+.day.sel{background:var(--warm); color:var(--deep); font-weight:600}
+.day i{display:block; width:4px; height:4px; border-radius:50%; margin:2px auto 0;
+  background:transparent}
+.day.has i{background:var(--rose)}
+.day.sel.has i{background:var(--deep)}
+
 /* 가운데 선 */
 .journey{padding-bottom:8px}
 .jline{position:relative; height:46px; margin:0 4px}
@@ -278,14 +294,16 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
 
     <div class="scene-head">
       <div class="scene-nav">
-        <button class="navb" id="cityPrev" type="button" aria-label="앞 도시">‹</button>
-        <span class="navno" id="cityNo">9 / 15</span>
-        <button class="navb" id="cityNext" type="button" aria-label="다음 도시">›</button>
+        <button class="navb" id="cityPrev" type="button" aria-label="앞날">‹</button>
+        <span class="navno" id="cityNo">10월 7일</span>
+        <button class="navb" id="cityNext" type="button" aria-label="다음날">›</button>
       </div>
       <p class="scene-city" id="sceneCity">치앙마이</p>
       <p class="scene-la" id="sceneLa">Chiang Mai</p>
       <p class="scene-when" id="sceneWhen">지금 여기</p>
     </div>
+
+    <div class="rail" id="dateRail"></div>
 
     <div class="journey">
       <div class="jline">
@@ -730,149 +748,190 @@ function whereNow(){
   return { km: kmAt(new Date()) };
 }
 
-// 지금 막 지난 도시의 번호
-function currentCityIndex(){
-  const km = whereNow().km;
-  let idx = 0;
-  for (let i = 0; i < DATA.cities.length; i++){
-    if (DATA.cities[i].km <= km + 0.5) idx = i;
-  }
-  return idx;
-}
-
-// 그 도시를 지나는 날
-const dateAtKm = km => timeAtKm(km);
-
-// 그 도시에 머무는 동안의 날짜 구간. 영상·사진을 도시별로 묶는 데 쓴다.
-function cityDateRange(i){
-  const last = i >= DATA.cities.length - 1;
-  const from = toDateStr(timeAtKm(DATA.cities[i].km));
-  const to = last ? '9999-12-31' : toDateStr(timeAtKm(DATA.cities[i + 1].km));
-  return { from, to };
-}
-
-// 그 도시 구간에 올라온 것들 (최근 것이 끝)
-function entriesFor(i, kind){
-  const r = cityDateRange(i), feed = media.feed || {}, out = [];
-  Object.keys(feed).sort().forEach(d => {
-    if (d >= r.from && d < r.to && feed[d] && feed[d][kind]){
-      out.push(Object.assign({ date: d }, feed[d][kind]));
-    }
-  });
+/* ---------- 날짜 ----------
+   장면은 날짜 하나로 결정된다. 어느 도시인지도, 어떤 사진인지도,
+   그날의 출근·저녁도 전부 날짜에서 따라 나온다. */
+const DATES = (() => {
+  const out = [];
+  let t = parse(cfg.start).getTime();
+  const end = parse(toDateStr(ARRIVAL)).getTime();
+  while (t <= end){ out.push(toDateStr(new Date(t))); t += day; }
   return out;
+})();
+
+const kmOnDate   = d => kmAt(parse(d));
+const cityOnDate = d => cityAt(kmOnDate(d));
+
+// 그날 올라온 것 하나
+function entryOn(d, kind){
+  const feed = media.feed || {};
+  const e = feed[d] && feed[d][kind];
+  return e ? Object.assign({ date: d }, e) : null;
 }
 
-/* ---------- 도시 화면 채우기 ---------- */
-let sceneIndex = 0;
+/* ---------- 날짜 띠 ---------- */
+let railReady = false, railLock = false, railTimer = null, settleTimer = null;
 
-function fillScene(i){
-  const cities = DATA.cities;
-  sceneIndex = Math.max(0, Math.min(cities.length - 1, i));
-  const here = cities[sceneIndex];
-  const next = cities[sceneIndex + 1] || null;
-  const cur = currentCityIndex();
-  const state = sceneIndex < cur ? 'past' : (sceneIndex > cur ? 'ahead' : 'now');
-  const w = whereNow();
+function buildRail(){
+  if (railReady) return;
+  railReady = true;
+  const rail = $('dateRail');
+  rail.innerHTML = DATES.map(d => {
+    const t = parse(d);
+    return '<button class="day" type="button" data-d="' + d + '">' +
+           (t.getUTCMonth() + 1) + '/' + t.getUTCDate() + '<i></i></button>';
+  }).join('');
+  rail.addEventListener('click', e => {
+    const b = e.target.closest('.day');
+    if (b) fillScene(b.dataset.d);
+  });
+  // 밀어서 멈추면 가운데 온 날짜를 고른다
+  rail.addEventListener('scroll', () => {
+    if (railLock) return;
+    clearTimeout(railTimer);
+    railTimer = setTimeout(pickCentered, 90);
+  }, { passive: true });
+}
+
+function pickCentered(){
+  const rail = $('dateRail');
+  const mid = rail.scrollLeft + rail.clientWidth / 2;
+  let best = null, bd = Infinity;
+  for (const el of rail.children){
+    const dd = Math.abs(el.offsetLeft + el.offsetWidth / 2 - mid);
+    if (dd < bd){ bd = dd; best = el; }
+  }
+  if (best && best.dataset.d !== sceneDate) fillScene(best.dataset.d, true);
+}
+
+function centerDay(d){
+  const rail = $('dateRail');
+  const el = rail.querySelector('[data-d="' + d + '"]');
+  if (!el) return;
+  railLock = true;
+  clearTimeout(railTimer);
+  clearTimeout(settleTimer);
+  // 곧바로 옮긴다. 부드럽게 굴리면 그 사이에 스크롤 감지가 끼어들어
+  // 고른 날짜를 지나가던 날로 바꿔 버린다.
+  rail.scrollLeft = el.offsetLeft + el.offsetWidth / 2 - rail.clientWidth / 2;
+  // 진짜로 멈춘 것을 보고 잠금을 푼다
+  let last = -1, still = 0;
+  const settle = () => {
+    const now = Math.round(rail.scrollLeft);
+    if (now === last){ if (++still >= 3){ railLock = false; return; } }
+    else { still = 0; last = now; }
+    settleTimer = setTimeout(settle, 60);
+  };
+  settleTimer = setTimeout(settle, 60);
+}
+
+function markRail(){
+  const today = todayStr();
+  for (const el of $('dateRail').children){
+    const d = el.dataset.d;
+    el.classList.toggle('sel', d === sceneDate);
+    el.classList.toggle('ahead', d > today);
+    el.classList.toggle('has', !!(entryOn(d, 'commute') || entryOn(d, 'dinner')));
+  }
+}
+
+function refreshScene(){ markRail(); markButtons(); }
+
+/* ---------- 장면 채우기 ---------- */
+let sceneDate = '';
+
+// fromRail 이면 띠를 밀어서 넘어온 것이다. 걸어오는 연출과 띠 되돌리기를 건너뛴다.
+function fillScene(d, fromRail){
+  sceneDate = DATES.indexOf(d) >= 0 ? d : DATES[DATES.length - 1];
+  const idx = DATES.indexOf(sceneDate);
+  const today = todayStr();
+  const state = sceneDate < today ? 'past' : (sceneDate > today ? 'ahead' : 'now');
+
+  const c = cityOnDate(sceneDate);
+  const here = c.last || DATA.cities[0];
+  const next = c.next;
+  const km = kmOnDate(sceneDate);
+  const t = parse(sceneDate);
 
   $('sceneCity').textContent = here.ko;
   $('sceneLa').textContent = here.la;
-  $('cityNo').textContent = (sceneIndex + 1) + ' / ' + cities.length;
-  $('cityPrev').disabled = sceneIndex === 0;
-  $('cityNext').disabled = sceneIndex === cities.length - 1;
+  $('cityNo').textContent = koDate(t);
+  $('cityPrev').disabled = idx <= 0;
+  $('cityNext').disabled = idx >= DATES.length - 1;
 
-  // 사진. 아직 안 간 곳은 흐리게 가린다.
+  // 사진. 같은 도시 안에서 날짜만 옮길 때는 다시 읽지 않는다.
   const img = $('sceneBg');
-  img.hidden = true;
+  const src = 'photos/' + slugOf(here) + '.jpg';
   img.classList.toggle('ahead', state === 'ahead');
   img.onload = () => { img.hidden = false; };
   img.onerror = () => { img.hidden = true; };
-  img.src = 'photos/' + slugOf(here) + '.jpg';
-
-  // 언제 지났는지
-  const when = $('sceneWhen');
-  const passed = dateAtKm(here.km);
-  if (state === 'now'){
-    when.textContent = '지금 여기';
-    when.classList.remove('dim');
-  } else if (state === 'past'){
-    when.textContent = koDate(passed) + (sceneIndex === 0 ? '에 출발했어요' : '에 지났어요');
-    when.classList.add('dim');
+  if (img.getAttribute('src') === src){
+    img.hidden = !(img.complete && img.naturalWidth > 0);
   } else {
-    const inDays = Math.max(1, Math.ceil((timeAtKm(here.km) - new Date()) / day));
-    when.textContent = koDate(passed) + ' 도착 예정 · ' + inDays + '일 뒤';
-    when.classList.add('dim');
+    img.hidden = true;
+    img.src = src;
   }
+
+  const when = $('sceneWhen');
+  when.classList.toggle('dim', state !== 'now');
+  when.textContent = state === 'now' ? '지금 여기'
+                   : state === 'past' ? daysAgoText(sceneDate)
+                   : dayDiff(today, sceneDate) + '일 뒤';
 
   // 가운데 선
   const fill = $('jFill'), me = $('jMe');
-  const legDays = next
-    ? Math.max(1, Math.round((timeAtKm(next.km) - timeAtKm(here.km)) / day))
-    : 0;
-
   $('jFrom').textContent = here.ko;
   $('jTo').textContent = next ? next.ko : '도착';
+  me.style.display = '';
 
-  let pct = '0%';
-  if (state === 'past'){
-    pct = '100%';
-    $('jFromD').textContent = sceneIndex === 0 ? '출발했어요' : '지났어요';
-    $('jToD').textContent = next ? legDays + '일 걸렸어요' : '여기서 만났어요';
-    me.style.display = 'none';
-  } else if (state === 'ahead'){
-    pct = '0%';
-    $('jFromD').textContent = '';
-    $('jToD').textContent = next ? legDays + '일 걸려요' : '여기서 만나요';
-    me.style.display = 'none';
+  let pct = '100%';
+  if (next){
+    const span = next.km - here.km;
+    pct = (Math.max(0, Math.min(1, span > 0 ? (km - here.km) / span : 0)) * 100).toFixed(1) + '%';
+    const gone = (t - timeAtKm(here.km)) / day;
+    const left = (timeAtKm(next.km) - t) / day;
+    $('jFromD').textContent = gone < 1
+      ? (here.km <= 0 ? '여기서 출발' : '이날 지났어요')
+      : '떠난 지 ' + Math.floor(gone) + '일';
+    $('jToD').textContent = Math.max(1, Math.ceil(left)) + '일 뒤';
   } else {
-    me.style.display = '';
-    if (!next){
-      pct = '100%';
-      $('jFromD').textContent = '';
-      $('jToD').textContent = '대전에 왔습니다';
-    } else {
-      const nowT = new Date();
-      const gone = (nowT - timeAtKm(here.km)) / day;
-      const left = (timeAtKm(next.km) - nowT) / day;
-      const span = next.km - here.km;
-      pct = (Math.max(0, Math.min(1, span > 0 ? (w.km - here.km) / span : 0)) * 100).toFixed(1) + '%';
-      $('jFromD').textContent = gone < 1
-        ? (here.km <= 0 ? '오늘 출발' : '오늘 지났어요')
-        : '떠난 지 ' + Math.floor(gone) + '일';
-      $('jToD').textContent = Math.max(1, Math.ceil(left)) + '일 남음';
-    }
+    $('jFromD').textContent = '';
+    $('jToD').textContent = '여기서 만나요';
   }
 
-  // 열릴 때마다 왼쪽에서 걸어온다
-  fill.style.width = '0%'; me.style.left = '0%';
-  setTimeout(() => { fill.style.width = pct; me.style.left = pct; }, 40);
+  if (fromRail){
+    fill.style.width = pct; me.style.left = pct;
+  } else {
+    fill.style.width = '0%'; me.style.left = '0%';
+    setTimeout(() => { fill.style.width = pct; me.style.left = pct; }, 40);
+    centerDay(sceneDate);
+  }
 
+  markRail();
   markButtons();
 }
 
 /* ---------- 버튼 ---------- */
 function markButtons(){
-  const cur = currentCityIndex();
-  const ahead = sceneIndex > cur;
-  const prefix = ahead ? '' : (sceneIndex === cur ? '오늘의 ' : '그때의 ');
+  const today = todayStr();
+  const ahead = sceneDate > today;
+  const prefix = sceneDate === today ? '오늘의 ' : '그날의 ';
 
   [['commute', 'btnCommute', '출근'], ['dinner', 'btnDinner', '저녁']]
     .forEach(([kind, id, word]) => {
       const b = $(id);
-      const list = ahead ? [] : entriesFor(sceneIndex, kind);
-      b.textContent = prefix + word;
+      const e = ahead ? null : entryOn(sceneDate, kind);
+      b.textContent = (ahead ? '' : prefix) + word;
       b.disabled = ahead;
-      b.classList.toggle('empty', ahead || !list.length);
-      if (list.length > 1){
-        b.textContent = prefix + word + ' ' + list.length;
-      }
+      b.classList.toggle('empty', !e);
     });
 }
 
-/* ---------- 도시 넘기기 ---------- */
-function gotoCity(delta){
-  const i = sceneIndex + delta;
-  if (i < 0 || i >= DATA.cities.length) return;
-  fillScene(i);
+/* ---------- 하루씩 넘기기 ---------- */
+function gotoDay(delta){
+  const i = DATES.indexOf(sceneDate) + delta;
+  if (i < 0 || i >= DATES.length) return;
+  fillScene(DATES[i]);
 }
 
 /* ---------- 열고 닫기 ---------- */
@@ -891,7 +950,8 @@ function openScene(){
   svg.style.transform = 'scale(7)';
   g.classList.add('diving');
 
-  fillScene(currentCityIndex());
+  buildRail();
+  fillScene(todayStr());
 
   setTimeout(() => {
     $('scene').classList.add('on');
@@ -956,44 +1016,27 @@ async function showMedia(kind, word){
     return;
   }
   if (!media.ready) await media.load();
-  const list = entriesFor(sceneIndex, kind);
-  if (!list.length){
-    toast(sceneIndex === currentCityIndex()
+  const e = entryOn(sceneDate, kind);
+  if (!e){
+    toast(sceneDate === todayStr()
       ? '오늘의 ' + word + '은 아직 안 올라왔어요'
-      : DATA.cities[sceneIndex].ko + ' 구간엔 ' + word + ' 기록이 없어요');
+      : koDate(parse(sceneDate)) + ' 의 ' + word + '은 없어요');
     return;
   }
-  openViewer(list[list.length - 1], DATA.cities[sceneIndex].ko + '의 ' + word);
+  openViewer(e, koDate(parse(sceneDate)) + '의 ' + word);
 }
 
 /* ---------- 묶기 ---------- */
 // 아바타를 누르는 건 여기서 받지 않는다. .globe 가 포인터를 캡처해서 click 이
 // avW 까지 오지 않기 때문이다. 판정은 지구본의 pointerup 핸들러 안에 있다.
 $('sceneClose').addEventListener('click', closeScene);
-$('cityPrev').addEventListener('click', () => gotoCity(-1));
-$('cityNext').addEventListener('click', () => gotoCity(1));
+$('cityPrev').addEventListener('click', () => gotoDay(-1));
+$('cityNext').addEventListener('click', () => gotoDay(1));
 $('btnCommute').addEventListener('click', () => showMedia('commute', '출근'));
 $('btnDinner').addEventListener('click', () => showMedia('dinner', '저녁'));
 $('vClose').addEventListener('click', closeViewer);
 $('viewer').addEventListener('click', e => { if (e.target === $('viewer')) closeViewer(); });
 
-// 좌우로 쓸어서 도시 넘기기
-(function(){
-  const el = $('scene');
-  let x0 = 0, y0 = 0, tracking = false;
-  el.addEventListener('pointerdown', e => {
-    if (e.target.closest('button')) return;     // 버튼 누르는 건 건드리지 않는다
-    tracking = true; x0 = e.clientX; y0 = e.clientY;
-  });
-  el.addEventListener('pointerup', e => {
-    if (!tracking) return;
-    tracking = false;
-    const dx = e.clientX - x0, dy = e.clientY - y0;
-    if (Math.abs(dx) < 55 || Math.abs(dy) > Math.abs(dx)) return;
-    gotoCity(dx < 0 ? 1 : -1);                  // 왼쪽으로 쓸면 다음 도시
-  });
-  el.addEventListener('pointercancel', () => { tracking = false; });
-})();
 
 addEventListener('keydown', e => {
   if (e.key === 'Escape'){
@@ -1002,12 +1045,12 @@ addEventListener('keydown', e => {
     return;
   }
   if (!sceneOpen || $('viewer').classList.contains('on')) return;
-  if (e.key === 'ArrowLeft') gotoCity(-1);
-  if (e.key === 'ArrowRight') gotoCity(1);
+  if (e.key === 'ArrowLeft') gotoDay(-1);
+  if (e.key === 'ArrowRight') gotoDay(1);
 });
 
 // 목록을 미리 받아둔다. 실패해도 앱은 그대로 돈다.
-media.load().then(() => { if (sceneOpen) markButtons(); });
+media.load().then(() => { if (sceneOpen) refreshScene(); });
 
 
 /* ================= 올리는 화면 (태영만) =================
@@ -1082,7 +1125,7 @@ function wireUpload(inputId, barId, kind, label){
       amsg(label + ' 올렸습니다');
       toast(label + ' 올렸어요');
       await media.load();
-      markButtons();
+      if (sceneOpen) refreshScene();
       renderAdminList();
     } catch (err) {
       amsg(label + ' 실패: ' + err.message);
@@ -1103,7 +1146,7 @@ async function removeEntry(date, kind){
       throw new Error(b.error || ('실패 (' + r.status + ')'));
     }
     await media.load();
-    markButtons();
+    if (sceneOpen) refreshScene();
     renderAdminList();
     amsg('지웠습니다');
   } catch (err) {
