@@ -146,7 +146,8 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
   background:rgba(7,17,28,.5); border:1px solid rgba(237,229,214,.26); border-radius:50%;
   width:34px; height:34px; cursor:pointer; padding:0; -webkit-tap-highlight-color:transparent}
 .navb:disabled{opacity:.25; cursor:default}
-.navno{font-family:var(--la); font-size:12.5px; color:var(--ondim); letter-spacing:.04em}
+.navno{font-family:var(--la); font-size:12.5px; color:var(--ondim); letter-spacing:.04em;
+  cursor:default; -webkit-tap-highlight-color:transparent; user-select:none}
 
 /* 아직 안 간 도시 */
 .scene-bg.ahead{filter:blur(7px) saturate(.5) brightness(.55); transform:scale(1.14)}
@@ -1067,7 +1068,7 @@ function wireUpload(inputId, barId, kind, label){
     const bar = $(barId);
     const mb = (file.size / 1048576).toFixed(1);
     if (file.size > 100 * 1048576){
-      amsg(label + ' 파일이 ' + mb + 'MB 입니다. 100MB 까지만 올라가요');
+      amsg(label + ' 파일이 ' + mb + 'MB 입니다. 100MB 까지만 올라가요. 사진 앱에서 짧게 잘라 다시 올려보세요');
       e.target.value = ''; return;
     }
 
@@ -1144,7 +1145,12 @@ function renderAdminList(){
   });
 }
 
-if (ADMIN_ON){
+let adminReady = false;
+function enableAdmin(){
+  if (adminReady) return;
+  adminReady = true;
+  store.set('admin', true);
+
   // 도시 화면에 올리기 버튼을 하나 더 붙인다
   const b = document.createElement('button');
   b.className = 'sbtn ghost';
@@ -1167,6 +1173,29 @@ if (ADMIN_ON){
   wireUpload('aCommute', 'aCommuteBar', 'commute', '출근 영상');
   wireUpload('aDinner', 'aDinnerBar', 'dinner', '저녁');
 }
+
+if (ADMIN_ON) enableAdmin();
+
+/* 홈 화면에 추가한 앱에서는 주소 뒤에 ?admin=1 을 붙일 수가 없다. 게다가
+   아이폰은 홈 화면 앱과 사파리의 저장 공간이 따로라, 사파리에서 켜 둔 표시도
+   넘어오지 않는다. 그래서 도시 화면의 번호(9 / 15)를 2초 안에 다섯 번 누르면
+   열리게 해 둔다. 광서는 누를 일이 없는 자리다. */
+(function(){
+  const el = $('cityNo');
+  if (!el) return;
+  let taps = [];
+  el.addEventListener('click', () => {
+    const now = Date.now();
+    taps = taps.filter(t => now - t < 2000);
+    taps.push(now);
+    if (taps.length < 5) return;
+    taps = [];
+    if (adminReady){ openAdmin(); return; }
+    enableAdmin();
+    toast('올리기를 켰습니다');
+    openAdmin();
+  });
+})();
 
 /* ---------- offline ---------- */
 if ('serviceWorker' in navigator) {
