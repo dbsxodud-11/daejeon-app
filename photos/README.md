@@ -38,7 +38,7 @@
     바그다드    5628442718 b10fc2c47f o.jpg
     두바이      Burj Khalifa 2021.jpg  (영문 위키백과 업로드)
     델리        Old Delhi city skyline from Jama Masjid, Delhi, India.jpg
-    치앙마이    Yi Peng lanterns in Chiang Mai (11067469754).jpg
+    치앙마이    0020-วัดพระสิงห์วรมหาวิหาร.jpg  (왓프라싱 해질녘)
     하노이      Hanoi skyline with Ba Vi Mountain.jpg
     홍콩        Hong Kong Harbour Night 2019-06-11.jpg
     타이베이    Taipei Skyline 2022.06.29.jpg
