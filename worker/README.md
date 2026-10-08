@@ -84,5 +84,10 @@
 | `POST /check` | 열쇠가 맞는지 확인 | 필요 |
 
 `kind` 는 `commute`(출근) 또는 `dinner`(저녁)입니다.
+
+`feed.json` 은 날짜를 열쇠로 씁니다.
+
+    { "2026-10-08": { "commute": {…}, "dinner": {…} } }
+
 영상은 mp4, mov, webm, 사진은 jpg, png, heic, webp 를 받습니다.
 한 파일당 100MB까지입니다. 무료 플랜의 요청 본문 상한과 같습니다.

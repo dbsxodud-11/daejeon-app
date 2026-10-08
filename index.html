@@ -92,6 +92,10 @@ button:hover{border-color:rgba(237,229,214,.4)}
 footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
 @media (prefers-reduced-motion:reduce){*{animation:none !important; transition:none !important}}
 
+/* ---------- 대전에서 기다리는 광서 ----------
+   걷는 아바타와 같은 동그라미. 테두리 색만 분홍으로 달리 해 둔다. */
+#avG{cursor:pointer}
+
 /* ---------- 아바타를 누르면 들어가는 도시 화면 ---------- */
 #avW{cursor:pointer}
 /* 파고들 때 확대된 지구본이 페이지 밖으로 번지지 않게 가둔다 */
@@ -254,6 +258,7 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
       <defs>
         <clipPath id="disc"><circle cx="500" cy="500" r="499"/></clipPath>
         <radialGradient id="glowW"><stop offset="0" stop-color="#f4b551" stop-opacity=".55"/><stop offset="1" stop-color="#f4b551" stop-opacity="0"/></radialGradient>
+        <radialGradient id="glowG"><stop offset="0" stop-color="#ee7e9b" stop-opacity=".5"/><stop offset="1" stop-color="#ee7e9b" stop-opacity="0"/></radialGradient>
         <clipPath id="meClip"><circle r="40"/></clipPath>
       </defs>
       <circle id="sky" cx="500" cy="500" r="499"/>
@@ -265,6 +270,11 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
       <path id="trail" class="trail"/>
       <g id="cities"></g>
       <g id="labels"></g>
+      <circle id="haloG" r="88" fill="url(#glowG)"/>
+      <g id="avG">
+        <circle r="41" fill="var(--panel)" stroke="var(--rose)" stroke-width="3"/>
+        <image href="gwangseo.jpg" x="-40" y="-40" width="80" height="80" clip-path="url(#meClip)" preserveAspectRatio="xMidYMid slice"/>
+      </g>
       <circle id="haloW" r="88" fill="url(#glowW)"/>
       <g id="avW">
         <circle r="41" fill="var(--panel)" stroke="var(--warm)" stroke-width="3"/>
@@ -458,7 +468,8 @@ function drawGlobeStatics(){
   }).join('') + `<g class="goal" style="${goalP.front?'':'display:none'}"><circle cx="${goalP.x.toFixed(1)}" cy="${goalP.y.toFixed(1)}" r="22"/></g>`;
   $('labels').innerHTML =
     `<text class="lbl" x="${homeP.x.toFixed(1)}" y="${(homeP.y+62).toFixed(1)}" text-anchor="middle" style="${homeP.front?'':'display:none'}">그르노블</text>` +
-    `<text class="lbl" id="goalLbl" x="${goalP.x.toFixed(1)}" y="${(goalP.y+70).toFixed(1)}" text-anchor="middle" style="${goalP.front?'':'display:none'}">대전</text>`;
+    // 대전 위에는 광서의 동그라미(r 41)가 서 있어서 글씨를 조금 더 내린다
+    `<text class="lbl" id="goalLbl" x="${goalP.x.toFixed(1)}" y="${(goalP.y+88).toFixed(1)}" text-anchor="middle" style="${goalP.front?'':'display:none'}">대전</text>`;
   globeDirty = false;
 }
 
@@ -595,14 +606,31 @@ function render(mapOnly){
   const t = kmToIndex(km), pos = proj(atIndex(t));
   $('trail').setAttribute('d', trailPoints(t));
   const goalP = proj(GOAL_V);
+
+  // 대전에 서 있는 광서. 지구본이 돌면 자리만 따라가고 크기는 그대로다.
+  $('avG').setAttribute('transform',`translate(${goalP.x},${goalP.y})`);
+  $('avG').style.opacity = $('haloG').style.opacity = goalP.front ? 1 : 0;
+  $('avG').style.pointerEvents = goalP.front ? '' : 'none';
+  $('haloG').setAttribute('cx',goalP.x); $('haloG').setAttribute('cy',goalP.y);
+
+  /* 다 와 가면 광서의 동그라미와 겹친다. 마주 보고 설 만큼만 떨어뜨린다.
+     멀리 있을 때는 아래 식이 그대로 pos 가 되어서 아무것도 달라지지 않는다. */
+  const MEET = 94;
   const sep = Math.hypot(goalP.x-pos.x, goalP.y-pos.y);
-  const push = sep < 150 ? (150-sep)*0.42 : 0;
-  const wy = pos.y-push;
-  lastAvatar = {x:pos.x, y:wy};
-  $('avW').setAttribute('transform',`translate(${pos.x},${wy})`);
+  let ux = pos.x-goalP.x, uy = pos.y-goalP.y, ul = Math.hypot(ux, uy);
+  if (ul < 30){
+    // 코앞이라 대전과 거의 겹쳐서 비킬 방향을 알 수 없다. 걸어온 길에서 빌린다.
+    const back = proj(atIndex(Math.max(0, t-25)));
+    ux = back.x-goalP.x; uy = back.y-goalP.y; ul = Math.hypot(ux, uy) || 1;
+  }
+  const dist = Math.max(MEET, sep);
+  const wx = goalP.x + ux/ul*dist, wy = goalP.y + uy/ul*dist;
+  lastAvatar = {x:wx, y:wy};
+  $('avW').setAttribute('transform',`translate(${wx},${wy})`);
   $('avW').style.opacity = $('haloW').style.opacity = pos.front ? 1 : 0;
-  $('haloW').setAttribute('cx',pos.x); $('haloW').setAttribute('cy',wy);
-  $('goalLbl').style.opacity = (push>24 || !goalP.front) ? 0 : 1;
+  $('haloW').setAttribute('cx',wx); $('haloW').setAttribute('cy',wy);
+  // 마지막엔 걷는 아바타가 광서 바로 아래, 글씨 자리에 와서 선다
+  $('goalLbl').style.opacity = (goalP.front && sep > 160) ? 1 : 0;
   document.querySelectorAll('#cities .city').forEach(el=>{
     el.classList.toggle('done', +el.dataset.km <= km+0.5);
   });
@@ -666,9 +694,9 @@ function render(mapOnly){
     if (pointers.size === 0){
       dragging=false; el.classList.remove('dragging');
       globeDirty=true; render(true);
-      if (e.type === 'pointerup' && !globeMoved &&
-          downTarget && downTarget.closest && downTarget.closest('#avW')){
-        openScene();
+      if (e.type === 'pointerup' && !globeMoved && downTarget && downTarget.closest){
+        if (downTarget.closest('#avW')) openScene();
+        else if (downTarget.closest('#avG')) greetGwangseo();
       }
       downTarget = null;
     } else if (pointers.size === 1){
@@ -690,6 +718,15 @@ function render(mapOnly){
   });
 })();
 
+
+/* ---------- 대전의 광서를 눌렀을 때 ---------- */
+function greetGwangseo(){
+  const diff = ARRIVAL - new Date();
+  if (diff <= 0){ toast('드디어 만났습니다 💓'); return; }
+  const left = Math.floor(diff / day);        // 화면 위 큰 숫자와 같게 센다
+  toast(left > 0 ? '광서가 대전에서 기다리는 중 · ' + left + '일 남았어요 💓'
+                 : '오늘 만나는 날이에요 💓');
+}
 
 /* ---------- flight countdown ---------- */
 function tickCountdown(){
@@ -1034,7 +1071,8 @@ function closeScene(){
 function openViewer(entry, label){
   const body = $('vBody'), cap = $('vCap');
   body.innerHTML = '';
-  cap.textContent = label + ' · ' + koDate(parse(entry.date)) + ' (' + daysAgoText(entry.date) + ')';
+  cap.textContent = label + ' · ' + koDate(parse(entry.date)) +
+                    ' (' + daysAgoText(entry.date) + ')';
 
   const src = media.url(entry.key);
   let el;
@@ -1101,7 +1139,9 @@ addEventListener('keydown', e => {
     else if (sceneOpen) closeScene();
     return;
   }
-  if (!sceneOpen || $('viewer').classList.contains('on')) return;
+  // 사진을 띄워 둔 동안에는 뒤의 날짜가 움직이지 않게 막는다
+  if ($('viewer').classList.contains('on')) return;
+  if (!sceneOpen) return;
   if (e.key === 'ArrowLeft') gotoDay(-1);
   if (e.key === 'ArrowRight') gotoDay(1);
 });
@@ -1215,13 +1255,12 @@ function renderAdminList(){
   const ul = $('aList');
   const feed = media.feed || {};
   const rows = [];
-  Object.keys(feed).sort().reverse().forEach(date => {
-    ['commute', 'dinner'].forEach(kind => {
-      if (feed[date] && feed[date][kind]){
-        rows.push({ date, kind, entry: feed[date][kind] });
-      }
+  Object.keys(feed).filter(k => feed[k] && !Array.isArray(feed[k]))
+    .sort().reverse().forEach(date => {
+      ['commute', 'dinner'].forEach(kind => {
+        if (feed[date][kind]) rows.push({ date, kind, entry: feed[date][kind] });
+      });
     });
-  });
 
   if (!rows.length){
     ul.innerHTML = '<li><span class="k">아직 올린 게 없습니다</span></li>';
@@ -1233,7 +1272,8 @@ function renderAdminList(){
     const li = document.createElement('li');
     const left = document.createElement('div');
     const mb = r.entry.size ? ' · ' + (r.entry.size / 1048576).toFixed(1) + 'MB' : '';
-    left.innerHTML = '<div>' + (r.kind === 'commute' ? '출근' : '저녁') + '</div>' +
+    const title = r.kind === 'commute' ? '출근' : '저녁';
+    left.innerHTML = '<div>' + title + '</div>' +
                      '<span class="k">' + r.date + mb + '</span>';
     const btn = document.createElement('button');
     btn.type = 'button';

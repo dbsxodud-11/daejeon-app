@@ -8,6 +8,9 @@
  *
  * 목록은 버킷 안 feed.json 하나에 들어간다. 올리는 사람이 한 명뿐이라
  * 읽고-고쳐-쓰기로 충분하다.
+ *
+ * feed.json 은 날짜를 열쇠로 쓴다.
+ *   { "2026-10-08": { "commute": {…}, "dinner": {…} } }
  */
 
 const FEED_KEY = 'feed.json';

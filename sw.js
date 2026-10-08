@@ -1,6 +1,6 @@
-const CACHE = 'daejeon-v36';
+const CACHE = 'daejeon-v41';
 const CORE = ['./', './index.html', './manifest.webmanifest',
-              './icon-180.png', './icon-192.png', './icon-512.png', './avatar-me.jpg'];
+              './icon-180.png', './icon-192.png', './icon-512.png', './avatar-me.jpg', './gwangseo.jpg'];
 
 // 글꼴만 바깥에서 받아 캐시한다. 한 번 받으면 바뀌지 않는 파일들이다.
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
