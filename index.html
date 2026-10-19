@@ -57,7 +57,42 @@ h1 b{font-weight:700}
 .state{margin:18px 0 0}
 .state .days{display:flex; align-items:baseline; gap:10px}
 .state .days strong{font-family:var(--la); font-size:62px; font-weight:500; line-height:.95; letter-spacing:-.02em}
-.state .days span{font-size:16px; color:var(--dim)}
+.state .days span{font-size:16px; color:var(--dim); transition:color 1.6s ease}
+
+/* ---------- 남은 날의 맥박 ----------
+   큰 숫자가 심장처럼 뛴다. 쿵-닥 두 번이 바짝 붙어서 치고(수축기) 나머지
+   절반은 길게 쉰다(확장기). 그래서 박동은 주기의 앞 45% 안에서 다 끝난다.
+   수축은 날카롭게 이완은 느리게 — 칸마다 easing 을 따로 준 이유다.
+   날이 가까워질수록 심박이 빨라지고 글씨가 진한 장미색으로 깊어진다.
+   단계는 JS 가 data-tier 로 갈아끼운다. */
+.state .days strong{
+  --bt:1.15s; color:var(--text);
+  transform-origin:left center; will-change:transform;
+  transition:color 1.6s ease;
+  animation:beat var(--bt) linear infinite;
+}
+@keyframes beat{
+  0%  {transform:scale(1);     animation-timing-function:cubic-bezier(.4,0,.7,.4)}
+  4%  {transform:scale(.996);  animation-timing-function:cubic-bezier(.05,.75,.25,1)}
+  11% {transform:scale(1.044); animation-timing-function:cubic-bezier(.35,0,.5,1)}
+  26% {transform:scale(1.003); animation-timing-function:cubic-bezier(.05,.75,.30,1)}
+  33% {transform:scale(1.021); animation-timing-function:cubic-bezier(.30,0,.45,1)}
+  45% {transform:scale(1)}
+  100%{transform:scale(1)}
+}
+/* 단계별 심박수와 글씨색. --bt 는 한 박동의 주기다 (60/bpm 초).
+   핑크도 박동도 '한 자리 수'의 신호다. 두 자리까지는 남색으로 가만히
+   있다가, 9일로 떨어지는 순간 색이 번지면서 비로소 뛰기 시작한다. */
+.days strong[data-tier=far]  {animation:none; color:var(--text)}  /* 두 자리 — 멈춤, 남색 */
+.days strong[data-tier=close]{--bt:1.15s; color:#b4536f}          /* 52 bpm · 9일 — 여기서부터 */
+.days strong[data-tier=soon] {--bt:.93s;  color:#a83a5c}          /* 65 bpm */
+.days strong[data-tier=today]{--bt:.74s;  color:#99204a}          /* 81 bpm · 턱밑 */
+
+/* 뒤따르는 글씨도 숫자와 같은 색으로 물든다 */
+.days strong[data-tier=close] ~ span{color:#b4536f}
+.days strong[data-tier=soon]  ~ span{color:#a83a5c}
+.days strong[data-tier=today] ~ span{color:#99204a}
+
 .state p{margin:.7em 0 0}
 
 .who{display:grid; grid-template-columns:1fr; gap:14px; padding:18px 0; border-bottom:1px solid var(--line)}
@@ -98,6 +133,42 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
 
 /* ---------- 아바타를 누르면 들어가는 도시 화면 ---------- */
 #avW{cursor:pointer}
+
+/* ---------- 열심히 달려가는 중이라 땀이 난다 ----------
+   #avW 는 JS 가 transform 으로 위치를 잡는다. 그래서 몸통을 안쪽
+   g 요소로 한 겹 싸서, 거기에만 CSS transform 을 건다.
+   땀방울은 머리 오른쪽 위로 튀어나가며 사라지고, 셋이 번갈아 돈다. */
+#avW .runner{animation:runbob 1.5s ease-in-out infinite}
+@keyframes runbob{0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)}}
+
+/* 땀방울과 햇살은 한 자리 수가 되어야 나타난다. 숫자색·박동·문구와 같은
+   신호를 쓰되, 이 둘은 지구본 안에 있어 형제 선택자가 닿지 않는다.
+   그래서 JS 가 body 에 .onedigit 을 붙여 주고 여기서 그걸 받는다.
+   기본값은 opacity:0 에 애니메이션 없음 — 즉 아예 없는 것처럼 보인다. */
+#avW .sweat{pointer-events:none}
+/* transform-box 를 fill-box 로 두는 게 중요하다. SVG 의 기본값은 view-box 라
+   transform-origin 이 viewBox 한가운데(500,500)로 잡히고, 그러면 scale 이
+   물방울을 제 자리에서 키우는 게 아니라 화면 중앙 쪽으로 끌고 가 버린다. */
+#avW .drop{fill:#bfe8ff; stroke:rgba(7,17,28,.45); stroke-width:1.6; opacity:0;
+  transform-box:fill-box; transform-origin:center}
+body.onedigit #avW .d1{animation:sweat 1.5s cubic-bezier(.4,0,.8,.6) infinite}
+body.onedigit #avW .d2{animation:sweat 1.5s cubic-bezier(.4,0,.8,.6) .5s infinite}
+body.onedigit #avW .d3{animation:sweat 1.5s cubic-bezier(.4,0,.8,.6) 1s infinite}
+/* 머리 오른쪽에 맺혔다가 아래로 떨어진다. easing 이 가속이라 중력처럼 보인다 */
+@keyframes sweat{
+  0%  {transform:translate(0,0) scale(.8);       opacity:0}
+  14% {opacity:.95}
+  72% {opacity:.9}
+  100%{transform:translate(5px,40px) scale(1.05); opacity:0}
+}
+
+/* ---------- 광서 쪽은 배경이 은은하게 밝아진다 ----------
+   #avG 도 JS 가 transform 으로 위치를 잡으므로 빛과 몸통을 따로 싼다.
+   그린 선이 아니라 넓고 옅은 따뜻한 빛 웅덩이다. 어두운 지구본 위라
+   밝은 색을 옅게 얹는 것만으로 그 자리가 환해진다. */
+#avG .sunlight{pointer-events:none; opacity:0}
+body.onedigit #avG .sunlight{animation:sunbreathe 5s ease-in-out infinite}
+@keyframes sunbreathe{0%,100%{opacity:.6} 50%{opacity:1}}
 /* 파고들 때 확대된 지구본이 페이지 밖으로 번지지 않게 가둔다 */
 .globe{overflow:hidden}
 .globe svg{transition:transform .6s cubic-bezier(.45,0,.2,1), opacity .4s ease .12s}
@@ -251,7 +322,7 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
 </head>
 <body>
 <main>
-  <h1><b>광서</b>야 이제 진짜 얼마 안 남았어!!<br>금방 만나러 갈게~~ 💓</h1>
+  <h1 id="lede"><b>광서</b>야 이제 진짜 얼마 안 남았어!!<br>금방 만나러 갈게~~ 💓</h1>
 
   <div class="globe" id="globe">
     <svg id="map" viewBox="0 0 1000 1000" aria-label="그르노블에서 대전으로 가는 경로">
@@ -259,6 +330,7 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
         <clipPath id="disc"><circle cx="500" cy="500" r="499"/></clipPath>
         <radialGradient id="glowW"><stop offset="0" stop-color="#f4b551" stop-opacity=".55"/><stop offset="1" stop-color="#f4b551" stop-opacity="0"/></radialGradient>
         <radialGradient id="glowG"><stop offset="0" stop-color="#ee7e9b" stop-opacity=".5"/><stop offset="1" stop-color="#ee7e9b" stop-opacity="0"/></radialGradient>
+        <radialGradient id="glowSun"><stop offset="0" stop-color="#fff3d0" stop-opacity=".55"/><stop offset=".45" stop-color="#f9d98a" stop-opacity=".26"/><stop offset="1" stop-color="#f4b551" stop-opacity="0"/></radialGradient>
         <clipPath id="meClip"><circle r="40"/></clipPath>
       </defs>
       <circle id="sky" cx="500" cy="500" r="499"/>
@@ -272,20 +344,30 @@ footer{margin-top:30px; color:var(--dim); font-size:13px; line-height:1.7}
       <g id="labels"></g>
       <circle id="haloG" r="88" fill="url(#glowG)"/>
       <g id="avG">
-        <circle r="41" fill="var(--panel)" stroke="var(--rose)" stroke-width="3"/>
-        <image href="gwangseo.jpg" x="-40" y="-40" width="80" height="80" clip-path="url(#meClip)" preserveAspectRatio="xMidYMid slice"/>
+        <circle class="sunlight" r="132" fill="url(#glowSun)"/>
+        <g class="her">
+          <circle r="41" fill="var(--panel)" stroke="var(--rose)" stroke-width="3"/>
+          <image href="gwangseo.jpg" x="-40" y="-40" width="80" height="80" clip-path="url(#meClip)" preserveAspectRatio="xMidYMid slice"/>
+        </g>
       </g>
       <circle id="haloW" r="88" fill="url(#glowW)"/>
       <g id="avW">
-        <circle r="41" fill="var(--panel)" stroke="var(--warm)" stroke-width="3"/>
-        <image href="avatar-me.jpg" x="-40" y="-40" width="80" height="80" clip-path="url(#meClip)" preserveAspectRatio="xMidYMid slice"/>
+        <g class="runner">
+          <circle r="41" fill="var(--panel)" stroke="var(--warm)" stroke-width="3"/>
+          <image href="avatar-me.jpg" x="-40" y="-40" width="80" height="80" clip-path="url(#meClip)" preserveAspectRatio="xMidYMid slice"/>
+        </g>
+        <g class="sweat" aria-hidden="true">
+          <g transform="translate(44,-42)"><path class="drop d3" d="M0,-11.2 C5.8,-3.8 7.4,1.9 0,7.4 C-7.4,1.9 -5.8,-3.8 0,-11.2 Z"/></g>
+          <g transform="translate(54,-24)"><path class="drop d1" d="M0,-11.2 C5.8,-3.8 7.4,1.9 0,7.4 C-7.4,1.9 -5.8,-3.8 0,-11.2 Z"/></g>
+          <g transform="translate(50,-4)"><path class="drop d2" d="M0,-11.2 C5.8,-3.8 7.4,1.9 0,7.4 C-7.4,1.9 -5.8,-3.8 0,-11.2 Z"/></g>
+        </g>
       </g>
     </svg>
   </div>
   <p class="hint" style="text-align:center; margin:-2px 0 1.1em">끌어서 돌리고 두 손가락으로 확대 · 아바타를 클릭해 보세요</p>
 
   <div class="state">
-    <div class="days"><strong id="dLeft" class="num">43</strong><span id="dLabel">일 뒤에 도착합니다</span></div>
+    <div class="days"><strong id="dLeft" class="num" data-tier="far">43</strong><span id="dLabel">일 뒤에 도착합니다</span></div>
     <p id="meetLine">10월 29일 목요일</p>
   </div>
 
@@ -729,6 +811,21 @@ function greetGwangseo(){
 }
 
 /* ---------- flight countdown ---------- */
+const BEAT_TIERS = [[10,'far'], [5,'close'], [2,'soon'], [0,'today']];
+
+/* 한 자리 수가 되면 위 문구도 같이 바뀐다 */
+const LEDE = {
+  far: '<b>광서</b>야 이제 진짜 얼마 안 남았어!!<br>금방 만나러 갈게~~ 💓',
+  one: '드디어 한 자리 수!!<br>많이 보고싶어 <b>광서</b>야 💓'
+};
+
+/* TEMP 미리보기 — 커밋 전에 false 로 되돌린다.
+   true 면 아직 두 자리여도 한 자리일 때의 색·박동·문구를 그대로 보여준다.
+   화면의 숫자는 진짜 남은 날 그대로 나온다. */
+const PREVIEW_ONE_DIGIT = false;
+
+let lastLede = null;
+
 function tickCountdown(){
   const diff = ARRIVAL - new Date();
   if (diff <= 0){ $('dLeft').textContent = ''; $('dLabel').textContent = '도착했습니다!'; return; }
@@ -737,6 +834,20 @@ function tickCountdown(){
         m = Math.floor(s%3600/60), sec = s%60;
   $('dLeft').textContent = d;
   $('dLabel').textContent = `일 ${h}시간 ${m}분 ${sec}초 남았습니다`;
+
+  // 색·박동·문구가 보는 날짜. 미리보기일 때만 한 자리로 깎아서 넘긴다.
+  const dv = PREVIEW_ONE_DIGIT ? Math.min(d, 9) : d;
+
+  // 남은 날에 따라 심박수와 글씨색이 달라진다. 바꾸는 일은 CSS 가 맡는다.
+  const tier = BEAT_TIERS.find(([lo]) => dv >= lo)[1];
+  if ($('dLeft').dataset.tier !== tier) $('dLeft').dataset.tier = tier;
+
+  const lede = dv >= 10 ? 'far' : 'one';
+  if (lastLede !== lede){ $('lede').innerHTML = LEDE[lede]; lastLede = lede; }
+
+  // 땀방울과 햇살은 지구본 안에 있어 CSS 형제 선택자가 닿지 않는다.
+  // body 에 표시를 남겨 두면 거기서 받아 간다.
+  document.body.classList.toggle('onedigit', dv < 10);
 }
 tickCountdown();
 setInterval(tickCountdown, 1000);
