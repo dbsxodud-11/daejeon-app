@@ -1276,7 +1276,13 @@ async function showMedia(kind, word){
     return;
   }
   if (!media.ready) await media.load();
-  const e = entryOn(sceneDate, kind);
+  let e = entryOn(sceneDate, kind);
+  // 지난 날 것을 뒤늦게 올렸을 수 있다. 없다고 말하기 전에 목록을 한 번 더 받아본다.
+  if (!e && sceneDate <= todayStr()){
+    await media.load();
+    refreshScene();
+    e = entryOn(sceneDate, kind);
+  }
   if (!e){
     toast(sceneDate === todayStr()
       ? '오늘의 ' + word + '은 아직 안 올라왔어요'
@@ -1312,7 +1318,16 @@ addEventListener('keydown', e => {
 });
 
 // 목록을 미리 받아둔다. 실패해도 앱은 그대로 돈다.
-media.load().then(() => { if (sceneOpen) refreshScene(); });
+const reloadFeed = () => media.load().then(() => { if (sceneOpen) refreshScene(); });
+reloadFeed();
+
+// 홈 화면 앱은 다시 열어도 페이지가 새로 뜨지 않고 그대로 살아 있다. 그래서 처음
+// 받은 목록이 굳어, 지난 날 것을 뒤늦게 올리면 그 폰에서는 영영 안 보였다.
+// 앱으로 돌아올 때마다 목록만 다시 받아둔다.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') reloadFeed();
+});
+addEventListener('pageshow', e => { if (e.persisted) reloadFeed(); });
 
 
 /* ================= 올리는 화면 (태영만) =================
